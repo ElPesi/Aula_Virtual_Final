@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Panel de Administrador</h1>
+    <p>Desde aquí puedes gestionar cursos, crear usuarios y asignar alumnos.</p>
+
+    <ul class="admin-menu">
+        <li><a href="{{ url_for('main.crear_usuario') }}">➕ Crear Usuario (Profesor/Alumno)</a></li>
+        <li><a href="#">📚 Gestionar Cursos (pendiente)</a></li>
+        <li><a href="#">👨‍🎓 Asignar Alumnos a Cursos (pendiente)</a></li>
+    </ul>
+</div>
+{% endblock %}
