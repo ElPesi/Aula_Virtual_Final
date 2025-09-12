@@ -1,3 +1,49 @@
-<h1>Panel de Alumno</h1>
-<p>Aquí puedes ver tus cursos y tareas.</p>
-<a href="{{ url_for('main.logout') }}">Cerrar sesión</a>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Panel de Alumno</h1>
+    <p>Aquí puedes ver tus cursos y tareas.</p>
+
+    {% if cursos %}
+        {% for curso in cursos %}
+            <div class="curso-card">
+                <h2>{{ curso.nombre }}</h2>
+                <p>Profesor: {{ curso.profesor.nombre }}</p>
+                <p>{{ curso.descripcion }}</p>
+
+                <!-- Archivos del curso -->
+                {% if curso.archivos %}
+                    <h3>Archivos:</h3>
+                    <ul>
+                    {% for archivo in curso.archivos %}
+                        <li><a href="{{ url_for('static', filename=archivo.ruta) }}" target="_blank">{{ archivo.nombre }}</a></li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No hay archivos disponibles.</p>
+                {% endif %}
+
+                <!-- Exámenes del curso -->
+                {% if curso.examenes %}
+                    <h3>Exámenes:</h3>
+                    <ul>
+                    {% for examen in curso.examenes %}
+                        <li>
+                            <a href="{{ url_for('main.contenido', curso_id=curso.id) }}">{{ examen.titulo }}</a>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No hay exámenes asignados.</p>
+                {% endif %}
+            </div>
+            <hr>
+        {% endfor %}
+    {% else %}
+        <p>No estás inscrito en ningún curso.</p>
+    {% endif %}
+
+    <a href="{{ url_for('main.logout') }}" class="btn-logout">Cerrar sesión</a>
+</div>
+{% endblock %}

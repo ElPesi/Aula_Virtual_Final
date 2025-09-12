@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from .models import User, Curso
+from .models import User, Curso, Archivo, Examen, Pregunta, Opcion
 from . import db, login_manager
+import os
 
 main = Blueprint("main", __name__)
 
@@ -60,11 +61,12 @@ def crear_usuario():
     return render_template("crear_usuario.html")
 
 
-# ------------------- PÁGINAS BÁSICAS -------------------
+# ------------------- LOGIN -------------------
 
+# Ahora "/" redirige directo a /login
 @main.route("/")
-def index():
-    return render_template("main.login")
+def home():
+    return redirect(url_for("main.login"))
 
 @main.route("/login", methods=["GET", "POST"])
 def login():
@@ -79,6 +81,9 @@ def login():
             flash("Credenciales incorrectas", "danger")
     return render_template("login.html")
 
+
+# ------------------- DASHBOARD -------------------
+
 @main.route("/dashboard")
 @login_required
 def dashboard():
@@ -91,64 +96,97 @@ def dashboard():
     elif current_user.rol == "alumno":
         cursos = Curso.query.all()  # ⚠️ luego filtrar solo cursos asignados
         return render_template("dashboard_alumno.html", cursos=cursos)
-    return redirect(url_for("main.index"))
+
+    # fallback
+    return redirect(url_for("main.login"))
+
+
+# ------------------- LOGOUT -------------------
 
 @main.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for("main.index"))
+    return redirect(url_for("main.login"))
 
-# ------------------- GESTIÓN DE CURSOS -------------------
+# ------------------- CURSOS -------------------
 
-@main.route("/cursos")
-@login_required
-def cursos():
-    cursos = Curso.query.all()
-    return render_template("cursos.html", cursos=cursos)
-
-@main.route("/curso/crear", methods=["GET", "POST"])
+# Profesor: crear curso
+@main.route("/profesor/crear_curso", methods=["GET", "POST"])
 @login_required
 def crear_curso():
-    if current_user.rol != "admin":
-        flash("Solo el ADMIN puede crear cursos", "danger")
-        return redirect(url_for("main.cursos"))
+    if current_user.rol != "profesor":
+        flash("Acceso denegado.", "danger")
+        return redirect(url_for("main.dashboard"))
 
     if request.method == "POST":
         nombre = request.form.get("nombre")
         descripcion = request.form.get("descripcion")
-        profesor_id = request.form.get("profesor_id")
 
-        curso = Curso(nombre=nombre, descripcion=descripcion, profesor_id=profesor_id)
-        db.session.add(curso)
+        nuevo_curso = Curso(nombre=nombre, descripcion=descripcion, profesor_id=current_user.id)
+        db.session.add(nuevo_curso)
         db.session.commit()
-        flash("Curso creado con éxito", "success")
-        return redirect(url_for("main.cursos"))
 
-    profesores = User.query.filter_by(rol="profesor").all()
-    return render_template("crear_curso.html", profesores=profesores)
+        flash("Curso creado correctamente", "success")
+        return redirect(url_for("main.dashboard"))
 
-@main.route("/curso/<int:curso_id>")
+    return render_template("crear_curso.html")
+
+
+# Profesor: editar curso
+@main.route("/profesor/editar_curso/<int:curso_id>", methods=["GET", "POST"])
 @login_required
-def ver_curso(curso_id):
+def editar_curso(curso_id):
     curso = Curso.query.get_or_404(curso_id)
-    return render_template("curso_detalle.html", curso=curso)
 
-@main.route("/curso/<int:curso_id>/eliminar", methods=["POST"])
+    if current_user.rol != "profesor" or curso.profesor_id != current_user.id:
+        flash("Acceso denegado.", "danger")
+        return redirect(url_for("main.dashboard"))
+
+    if request.method == "POST":
+        curso.nombre = request.form.get("nombre")
+        curso.descripcion = request.form.get("descripcion")
+        db.session.commit()
+
+        flash("Curso actualizado correctamente", "success")
+        return redirect(url_for("main.dashboard"))
+
+    return render_template("editar_curso.html", curso=curso)
+
+
+# Profesor: eliminar curso
+@main.route("/profesor/eliminar_curso/<int:curso_id>", methods=["POST"])
 @login_required
 def eliminar_curso(curso_id):
-    if current_user.rol != "admin":
-        flash("Solo el ADMIN puede eliminar cursos", "danger")
-        return redirect(url_for("main.cursos"))
-
     curso = Curso.query.get_or_404(curso_id)
+
+    if current_user.rol != "profesor" or curso.profesor_id != current_user.id:
+        flash("Acceso denegado.", "danger")
+        return redirect(url_for("main.dashboard"))
+
     db.session.delete(curso)
     db.session.commit()
-    flash("Curso eliminado", "info")
-    return redirect(url_for("main.cursos"))
 
-# ------------------- PUBLICACIÓN DE CONTENIDOS -------------------
+    flash("Curso eliminado correctamente", "success")
+    return redirect(url_for("main.dashboard"))
 
+# Admin: asignar alumnos a un curso
+@main.route("/curso/<int:curso_id>/asignar_alumnos", methods=["GET", "POST"])
+@login_required
+def asignar_alumnos(curso_id):
+    curso = Curso.query.get_or_404(curso_id)
+    alumnos = User.query.filter_by(rol="alumno").all()
+
+    if request.method == "POST":
+        seleccionados = request.form.getlist("alumnos_seleccionados")
+        curso.alumnos = [User.query.get(int(a_id)) for a_id in seleccionados]
+        db.session.commit()
+        flash("Alumnos asignados correctamente.")
+        return redirect(url_for("main.dashboard"))
+
+    return render_template("asignar_alumnos.html", curso=curso, alumnos=alumnos)
+
+# ------------------- CONTENIDOS -------------------
 @main.route("/curso/<int:curso_id>/contenido", methods=["GET", "POST"])
 @login_required
 def contenido(curso_id):
@@ -156,34 +194,113 @@ def contenido(curso_id):
 
     if request.method == "POST" and current_user.rol == "profesor":
         archivo = request.files["archivo"]
-        archivo.save(f"app/static/{archivo.filename}")
-        flash("Contenido subido con éxito", "success")
-        # ⚠️ aquí deberías guardar en DB una referencia al archivo
-    return render_template("contenido.html", curso=curso)
+        ruta_guardado = f"uploads/{archivo.filename}"
+        archivo.save(os.path.join("app", "static", ruta_guardado))
 
-# ------------------- SISTEMA DE EVALUACIONES -------------------
+        nuevo_archivo = Archivo(nombre=archivo.filename, ruta=ruta_guardado, curso_id=curso.id)
+        db.session.add(nuevo_archivo)
+        db.session.commit()
+        flash("Archivo subido con éxito", "success")
+        return redirect(url_for("main.contenido", curso_id=curso.id))
 
-@main.route("/curso/<int:curso_id>/examen/crear", methods=["GET", "POST"])
+    return render_template("contenido.html", curso=curso, archivos=curso.archivos, examenes=curso.examenes)
+
+
+@main.route("/archivo/<int:archivo_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_archivo(archivo_id):
+    archivo = Archivo.query.get_or_404(archivo_id)
+
+    if current_user.rol != "profesor" or archivo.curso.profesor_id != current_user.id:
+        flash("No tienes permisos para eliminar este archivo", "danger")
+        return redirect(url_for("main.dashboard"))
+
+    ruta_completa = os.path.join("app", "static", archivo.ruta)
+    if os.path.exists(ruta_completa):
+        os.remove(ruta_completa)
+
+    db.session.delete(archivo)
+    db.session.commit()
+    flash("Archivo eliminado con éxito", "success")
+    return redirect(url_for("main.contenido", curso_id=archivo.curso_id))
+
+
+# ------------------- EXÁMENES -------------------
+@main.route("/curso/<int:curso_id>/crear_examen", methods=["GET", "POST"])
 @login_required
 def crear_examen(curso_id):
+    curso = Curso.query.get_or_404(curso_id)
+
     if current_user.rol != "profesor":
-        flash("Solo los PROFESORES pueden crear exámenes", "danger")
-        return redirect(url_for("main.cursos"))
+        flash("No tienes permisos para crear exámenes.")
+        return redirect(url_for("main.dashboard"))
 
     if request.method == "POST":
-        pregunta = request.form.get("pregunta")
-        respuesta = request.form.get("respuesta")
-        flash("Examen creado (ejemplo)", "success")
-        # ⚠️ Guardar examen en DB
-        return redirect(url_for("main.ver_curso", curso_id=curso_id))
-    return render_template("crear_examen.html", curso_id=curso_id)
+        titulo = request.form.get("titulo")
+        examen = Examen(titulo=titulo, curso_id=curso.id)
+        db.session.add(examen)
+        db.session.commit()
 
+        flash("Examen creado. Ahora añade preguntas.")
+        return redirect(url_for("main.editar_examen", examen_id=examen.id))
+
+    return render_template("crear_examen.html", curso=curso)
+
+@main.route("/examen/<int:examen_id>/editar", methods=["GET", "POST"])
+@login_required
+def editar_examen(examen_id):
+    examen = Examen.query.get_or_404(examen_id)
+
+    if current_user.rol != "profesor":
+        flash("No tienes permisos para editar exámenes.")
+        return redirect(url_for("main.dashboard"))
+
+    if request.method == "POST":
+        texto_pregunta = request.form.get("pregunta")
+        tipo = request.form.get("tipo")
+
+        nueva_pregunta = Pregunta(texto=texto_pregunta, tipo=tipo, examen_id=examen.id)
+        db.session.add(nueva_pregunta)
+        db.session.commit()
+
+        if tipo == "multiple":
+            opciones = request.form.getlist("opciones[]")
+            correctas = request.form.getlist("correctas[]")
+            for i, texto_opcion in enumerate(opciones):
+                opcion = Opcion(
+                    texto=texto_opcion,
+                    es_correcta=str(i) in correctas,
+                    pregunta_id=nueva_pregunta.id
+                )
+                db.session.add(opcion)
+            db.session.commit()
+
+        flash("Pregunta añadida correctamente.")
+        return redirect(url_for("main.editar_examen", examen_id=examen.id))
+
+    return render_template("editar_examen.html", examen=examen)
+
+# Alumno: resolver examen
 @main.route("/curso/<int:curso_id>/examen/<int:examen_id>/resolver", methods=["GET", "POST"])
 @login_required
 def resolver_examen(curso_id, examen_id):
+    if current_user.rol != "alumno":
+        flash("No tienes permisos para acceder a este examen.", "danger")
+        return redirect(url_for("main.dashboard"))
+
+    examen = Examen.query.get_or_404(examen_id)
+
     if request.method == "POST":
-        respuesta = request.form.get("respuesta")
-        flash("Respuesta enviada (ejemplo)", "info")
-        # ⚠️ Guardar respuesta en DB
-        return redirect(url_for("main.ver_curso", curso_id=curso_id))
-    return render_template("resolver_examen.html", curso_id=curso_id, examen_id=examen_id)
+        for pregunta in examen.preguntas:
+            if pregunta.tipo == "abierta":
+                respuesta_texto = request.form.get(f"pregunta_{pregunta.id}")
+                print(f"Respuesta abierta: {respuesta_texto}")  # acá luego guardás en la DB
+
+            elif pregunta.tipo == "multiple":
+                seleccionadas = request.form.getlist(f"pregunta_{pregunta.id}")
+                print(f"Respuestas multiple: {seleccionadas}")  # acá luego guardás en la DB
+
+        flash("Examen enviado correctamente.")
+        return redirect(url_for("main.contenido", curso_id=curso_id))
+
+    return render_template("resolver_examen.html", examen=examen)

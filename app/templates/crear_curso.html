@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Crear Curso</h1>
+    <form method="POST">
+        <label>Nombre del curso:</label>
+        <input type="text" name="nombre" required>
+
+        <label>Descripción:</label>
+        <textarea name="descripcion" required></textarea>
+
+        <button type="submit">Crear Curso</button>
+    </form>
+</div>
+{% endblock %}

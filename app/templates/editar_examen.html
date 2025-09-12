@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h1>Editar Examen: {{ examen.titulo }}</h1>
+
+    <!-- Formulario para añadir nueva pregunta -->
+    <form method="POST">
+        <label>Pregunta:</label>
+        <textarea name="pregunta" required></textarea>
+
+        <label>Tipo de pregunta:</label>
+        <select name="tipo" id="tipo" onchange="toggleOpciones()">
+            <option value="abierta">Abierta</option>
+            <option value="multiple">Opción múltiple</option>
+        </select>
+
+        <!-- Opciones solo aparecen si tipo es múltiple -->
+        <div id="opciones-container" style="display:none;">
+            <h3>Opciones</h3>
+            <div id="opciones-list">
+                <input type="text" name="opciones[]" placeholder="Opción 1">
+                <input type="checkbox" name="correctas[]" value="0"> Correcta
+            </div>
+            <button type="button" onclick="addOpcion()">Añadir Opción</button>
+        </div>
+
+        <br>
+        <button type="submit">Guardar Pregunta</button>
+    </form>
+
+    <hr>
+    <!-- Lista de preguntas actuales -->
+    <h2>Preguntas del examen</h2>
+    <ul>
+        {% for p in examen.preguntas %}
+            <li>{{ p.texto }} ({{ p.tipo }})</li>
+        {% else %}
+            <li>No hay preguntas aún.</li>
+        {% endfor %}
+    </ul>
+
+    <br>
+    <!-- Botón para terminar edición -->
+    <a href="{{ url_for('main.contenido', curso_id=examen.curso.id) }}">
+        <button type="button">Terminar edición del examen</button>
+    </a>
+</div>
+
+<script>
+function toggleOpciones() {
+    let tipo = document.getElementById("tipo").value;
+    let contenedor = document.getElementById("opciones-container");
+    contenedor.style.display = (tipo === "multiple") ? "block" : "none";
+}
+
+let opcionCount = 1;
+function addOpcion() {
+    opcionCount++;
+    let div = document.createElement("div");
+    div.innerHTML = `
+        <input type="text" name="opciones[]" placeholder="Opción ${opcionCount}">
+        <input type="checkbox" name="correctas[]" value="${opcionCount-1}"> Correcta
+    `;
+    document.getElementById("opciones-list").appendChild(div);
+}
+</script>
+{% endblock %}

@@ -1,3 +1,19 @@
-<h1>Panel de Profesor</h1>
-<p>Aquí puedes crear tareas y subir materiales.</p>
-<a href="{{ url_for('main.logout') }}">Cerrar sesión</a>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Panel de Profesor</h1>
+
+    <h2>Mis Cursos</h2>
+    <ul>
+        {% for curso in cursos %}
+        <li>
+            {{ curso.nombre }} -
+            <a href="{{ url_for('main.contenido', curso_id=curso.id) }}">Subir Contenido</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <a href="{{ url_for('main.crear_curso') }}">➕ Crear Curso</a><br><br>
+</div>
+{% endblock %}

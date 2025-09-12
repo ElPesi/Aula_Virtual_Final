@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Asignar alumnos al curso: {{ curso.nombre }}</h1>
+
+    <form method="POST">
+        <ul>
+            {% for alumno in alumnos %}
+                <li>
+                    <input type="checkbox" name="alumnos_seleccionados" value="{{ alumno.id }}"
+                        {% if alumno in curso.alumnos %} checked {% endif %}>
+                    {{ alumno.nombre }} ({{ alumno.email }})
+                </li>
+            {% else %}
+                <li>No hay alumnos registrados.</li>
+            {% endfor %}
+        </ul>
+
+        <button type="submit">Asignar Alumnos</button>
+    </form>
+
+    <a href="{{ url_for('main.dashboard') }}">⬅ Volver al panel de admin</a>
+</div>
+{% endblock %}

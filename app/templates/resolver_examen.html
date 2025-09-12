@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Examen - {{ examen.curso.nombre }}</h1>
+
+    <form method="POST">
+        {% for pregunta in examen.preguntas %}
+            <div class="pregunta">
+                <p><strong>Pregunta {{ loop.index }}:</strong> {{ pregunta.texto }}</p>
+
+                {% if pregunta.tipo == "abierta" %}
+                    <input type="text" name="pregunta_{{ pregunta.id }}" required>
+
+                {% elif pregunta.tipo == "multiple" %}
+                    {% for opcion in pregunta.opciones %}
+                        <div>
+                            <input type="checkbox" name="pregunta_{{ pregunta.id }}" value="{{ opcion.id }}">
+                            {{ opcion.texto }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <hr>
+        {% endfor %}
+
+        <button type="submit">Enviar respuestas</button>
+    </form>
+
+    <a href="{{ url_for('main.contenido', curso_id=examen.curso.id) }}">Volver al contenido</a>
+</div>
+{% endblock %}
