@@ -10,9 +10,7 @@ main = Blueprint("main", __name__)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ------------------------
-# DASHBOARD ADMIN
-# ------------------------
+#  ------------------------DASHBOARD ADMIN ------------------------
 @main.route("/admin/crear_usuario", methods=["GET", "POST"])
 @login_required
 def crear_usuario():
